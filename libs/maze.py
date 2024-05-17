@@ -3,6 +3,7 @@
 ##############################
 
 import pygame, sys, time ,random, numpy as np, pickle
+from Astar import RoboticsAlgorithms
 
 class Environment:
 
@@ -13,11 +14,12 @@ class Environment:
     RED = (255,0,0)
     BLACK = (0,0,0)
 
-    def __init__(self, width = 500, height = 500, ncellsx = 25, ncellsy = 25, visualize_maze_building = False):
+    def __init__(self, width = 500, height = 500, ncellsx = 50, ncellsy = 50, visualize_maze_building = True):
         
         # set whther or not we want to visualize the maze building in real time
         self.visualize_maze_building = visualize_maze_building 
-
+        if width < ncellsx*3: width = ncellsx*3
+        if height < ncellsy*3: height = ncellsy*3
         self.width = width
         self.height = height
         self.size = (self.width,self.height) # this is the size of the map in pixels
@@ -25,13 +27,14 @@ class Environment:
         self.clock = None
 
         self.ncellsx = ncellsx
-        self.ncellsy = ncellsy
-        self.pos = (0,0)
-        self.oldpos = self.pos
+        self.ncellsy = ncellsy        
         self.wx = self.width//self.ncellsx
         self.wy = self.height//self.ncellsy
         self.width = self.ncellsx*self.wx   # we rescale to make sure the maze looks cohesive
         self.height = self.ncellsy*self.wy
+        self.pos_start = (0,0)
+        self.pos_end = (ncellsx-1,ncellsy-1)
+        self.pos = self.pos_start
 
         self.grid = []
         self.visited = []
@@ -73,46 +76,43 @@ class Environment:
             possible_walls = [(pos[0]+1, pos[1]),(pos[0]-1, pos[1]),(pos[0], pos[1]-1),(pos[0], pos[1]+1)]
             walls = []
             for i, q in enumerate(possible_walls):
-                if q in self.graph[pos]:
+                if q not in self.graph[pos]:
                     walls.append(i)
-            print(walls)
             for i in walls:
                 if i < 2:
-                    pygame.draw.line(self.screen, color, [self.wx*possible_walls[i][0], self.wy*(possible_walls[i][1])], [self.wx*possible_walls[i][0], self.wy*(possible_walls[i][1]+1)], width = 1)
+                    pygame.draw.line(self.screen, color, [self.wx*(pos[0] + possible_walls[i][0] + 1)/2, self.wy*possible_walls[i][1]], [self.wx*(pos[0] + possible_walls[i][0] + 1)/2, self.wy*(1+possible_walls[i][1])], width = 1)
                 else:
-                    pygame.draw.line(self.screen, color, [self.wx*(possible_walls[i][0]), self.wy*possible_walls[i][1]], [self.wx*(possible_walls[i][0]+1), self.wy*possible_walls[i][1]], width = 1)
-        pygame.display.update()
+                    pygame.draw.line(self.screen, color, [self.wx*possible_walls[i][0], self.wy*(pos[1] + possible_walls[i][1] + 1)/2], [self.wx*(1+possible_walls[i][0]), self.wy*(pos[1] + possible_walls[i][1] + 1)/2], width = 1)
+            pygame.display.update()
 
     def build_maze(self):
         self.visited.append(self.pos) # this keeps track of all positions we have visited
         self.stack.append(self.pos)   # this keeps track of which next positions we should explore
-        while self.stack:
-            if self.visualize_maze_building: time.sleep(1)
+        self.stack.append(self.pos_end)   # this keeps track of which next positions we should explore
+        while self.stack:            
             locs = np.random.permutation([(1,0),(-1,0),(0,1),(0,-1)]) # pick a random direction
             flag = 1
             for loc in [a for a in locs]: # we vist a new location
                 newpos = (loc[0]+self.pos[0],loc[1]+self.pos[1])
                 if newpos[0]>=0 and newpos[0]<self.ncellsx and newpos[1]>=0 and newpos[1]<self.ncellsy and newpos not in self.visited:
                     self.graph.setdefault(self.pos,[]).append(newpos) # we append the positions we can visit from a given node
+                    self.graph.setdefault(newpos,[]).append(self.pos)
                     flag = 0
                     self.visited.append(newpos)
                     self.stack.append(self.pos)
                     self.pos = newpos # we move to the new location
                     break
             if flag and self.stack: # if we enter a dead end we select the last position visited from the stack
-                self.pos = self.stack.pop()
-
-    def build_corner():
-        pass
-
-    def populate_maze(self):
-        for x in range(self.ncellsx):
-            for y in range(self.ncellsy):
-                if self.graph.get((x,y)):
-                    for h in self.graph.get((x,y)):
-                        self.draw_rect_2(self.BLUE,(x,y),h)
-
-
+                if self.pos_end not in self.visited:
+                    self.visited = sorted(self.visited, key = lambda x : (x[0] - self.pos_end[0])**2 +  (x[1] - self.pos_end[1])**2)
+                    self.pos = self.visited[0]
+                    self.visited = self.visited[1:]
+                else:
+                    p = np.random.randint(len(self.stack))
+                    self.pos = self.stack[p]
+                    self.stack = self.stack[:p] + self.stack[p+1:]
+        return self.graph
+    
     def run(self):
         flag = 1
         pygame.display.flip() 
@@ -121,8 +121,8 @@ class Environment:
             for event in pygame.event.get():
                 flag = event.type != pygame.QUIT
 
-    def draw_pos(self, pos):
-        pygame.draw.circle(self.screen,self.WHITE,((pos[0]+.5)*self.wx, (pos[1]+.5)*self.wy),self.wx/3)
+    def draw_pos(self, pos, color = WHITE):
+        pygame.draw.circle(self.screen, color, ((pos[0]+.5)*self.wx, (pos[1]+.5)*self.wy), self.wx/3)
         pygame.display.update()
 
     def draw_rect(self,color,direction,pos,dx,dy):
@@ -143,27 +143,6 @@ class Environment:
         direction = int(loc==(1,0)) + 2*int(loc==(0,1)) + 3*int(loc == (-1,0))
         self.draw_rect(color,direction,pos1,self.wx,self.wy)
 
-    def state_machine(self, type = "maze", build = 1):
-        if self.visualize_maze_building:
-            self.init_maze_environment()
-            self.build_grid()
-        if type == "maze":
-            if build:
-                self.build_maze()
-            else:
-                self.populate_maze()
-        if type == "corner":
-            if build:
-                self.build_corner((7,13),(7,7),(13,7),(13,13))
-            else:
-                self.populate_corner()
-        
-        if self.visualize_maze_building:
-            self.run()
-
-    def retgraph(self):
-        return self.graph
-    
     def save_graph(self, filename):
         with open(filename, 'wb') as file:
             pickle.dump(self.graph, file, protocol=pickle.HIGHEST_PROTOCOL)
@@ -173,9 +152,14 @@ class Environment:
             self.graph = pickle.load(file)
 
 if __name__ == "__main__":
-    m = Environment(ncellsx = 12, ncellsy = 9, visualize_maze_building = True)
-    m.state_machine()
-    # print(m.retgraph())    
-    # m.save_graph("amaze.pickle")
-    # m.build_grid()
-    # m.state_machine(build = 0)
+    while(1):
+        m = Environment(width = 500, height = 500, ncellsx = 50, ncellsy = 50, visualize_maze_building = True)
+        rb = RoboticsAlgorithms()
+        m.init_maze_environment()
+        m.build_maze()
+        m.draw_grid_from_graph()   
+        m.save_graph("amaze.pickle")    
+        path = rb.Astar(graph = m.graph, pos_start = m.pos_start, pos_end = m.pos_end)
+        for p in path:
+            m.draw_pos(p)
+        m.run()
