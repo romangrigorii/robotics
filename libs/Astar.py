@@ -1,4 +1,21 @@
-class RoboticsAlgorithms:        
+class RoboticsAlgorithms:
+    @staticmethod
+    def clean_up_path(pos_start, pos_end, path, graph):
+        visited = set(pos_start)
+        def helper(pos_start, path_so_far):
+            if pos_start == pos_end: 
+                return -1, path_so_far
+            posibilities = [p for p in graph[pos_start] if p in path]
+            if not posibilities: return 0, []
+            else:
+                for p in posibilities:
+                    visited.add(p)
+                    a, b = helper(p, path_so_far + [p])
+                    if a == - 1: return a, b
+                    visited.remove(p)
+        _, path_so_far = helper(pos_start, [])
+        return path_so_far     
+    
     @staticmethod
     def Astar(graph, pos_start = (0,0), pos_end = (0,0)):
         '''
@@ -23,4 +40,9 @@ class RoboticsAlgorithms:
                 if q not in visited:
                     openlist += [[q,pos_cur[1]+1, Astar_heuristic(pos_cur[0],q,1)]] # we add new nodes to the list
             visited.append(pos_cur[0])
+
+        # v = RoboticsAlgorithms.clean_up_path(pos_start, pos_end, visited_path, graph)
+        # print(v)
         return visited_path
+    
+   
