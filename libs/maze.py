@@ -14,7 +14,7 @@ class Environment:
     RED = (255,0,0)
     BLACK = (0,0,0)
 
-    def __init__(self, width = 500, height = 500, ncellsx = 50, ncellsy = 50, visualize_maze_building = True):
+    def __init__(self, width = 1000, height = 500, ncellsx = 100, ncellsy = 50, visualize_maze_building = True):
         
         # set whther or not we want to visualize the maze building in real time
         self.visualize_maze_building = visualize_maze_building 
@@ -153,13 +153,15 @@ class Environment:
 
 if __name__ == "__main__":
     while(1):
-        m = Environment(width = 500, height = 500, ncellsx = 50, ncellsy = 50, visualize_maze_building = True)
+        m = Environment(width = 500, height = 500, ncellsx = 70, ncellsy = 70, visualize_maze_building = True)
         rb = RoboticsAlgorithms()
         m.init_maze_environment()
         m.build_maze()
         m.draw_grid_from_graph()   
         m.save_graph("amaze.pickle")    
-        path = rb.Astar(graph = m.graph, pos_start = m.pos_start, pos_end = m.pos_end)
+        path, shortest = rb.Astar(graph = m.graph, pos_start = m.pos_start, pos_end = m.pos_end)
         for p in path:
             m.draw_pos(p)
+        for p in shortest:
+            m.draw_pos(p, color=m.BLUE)
         m.run()
