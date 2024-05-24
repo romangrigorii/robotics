@@ -2,10 +2,13 @@
 # Python maze generator code #
 ##############################
 
-import pygame, sys, time ,random, numpy as np, pickle
-from Astar import RoboticsAlgorithms
+import pygame, numpy as np, pickle
+from search_algs import SearchAlgs
+import matplotlib.pyplot as plt
+from collections import deque
+import heapq
 
-class Environment:
+class MazeBuilder:
 
     WHITE = (255,255,255)
     GREEN = (0,255,0)
@@ -14,11 +17,19 @@ class Environment:
     RED = (255,0,0)
     BLACK = (0,0,0)
 
-    def __init__(self, width = 1000, height = 500, ncellsx = 100, ncellsy = 50, visualize_maze_building = True):
-        
+    def __init__(self, type = 1, width = 100, height = 100, ncellsx = 20, ncellsy = 20, visualize_maze_building = True):
+        '''
+        For all mazes the start and end node are positioned at (0,0) and (ncellsx-1,ncellsy-1), respectively 
+        maze types:
+        0 - this is a maze in which the start and ned node are connedted by exctly ONE global path. 
+        1 - this is a maze in which hthe start node position can be reached via multiple paths, and the vertex weights are
+        derived from a height map, if it is nonempty. The default height map is represented by a series of 'hills'
+        '''
         # set whther or not we want to visualize the maze building in real time
+        self.type = type
         self.visualize_maze_building = visualize_maze_building 
-        if width < ncellsx*3: width = ncellsx*3
+        self.FPS = 1
+        if width < ncellsx*3: width = ncellsx*3 # make sure each path is at least 1 pixel wide
         if height < ncellsy*3: height = ncellsy*3
         self.width = width
         self.height = height
@@ -36,15 +47,23 @@ class Environment:
         self.pos_end = (ncellsx-1,ncellsy-1)
         self.pos = self.pos_start
 
-        self.grid = []
         self.visited = []
+        self.visited_set = set()
         self.stack = []
-        self.solution = {}
         self.graph = {}
         self.paths = []
 
-        self.FPS = 1
+        self.heightmap = [[np.exp(-((x - ncellsx/4)**2 )/ncellsx**2*10 - ((y - ncellsy/2)**2)/ncellsy**2*60) for y in range(ncellsy)] for x in range(ncellsx)]
+        self.heightmap = [[self.heightmap[x][y] + np.exp(-((x - ncellsx*3/4)**2 )/ncellsx**2*30 - ((y - ncellsy*3/4)**2)/ncellsy**2*30) for y in range(ncellsy)] for x in range(ncellsx)]
+        self.heightmap = [[self.heightmap[x][y] + np.exp(-((x - ncellsx*1/4)**2 )/ncellsx**2*30 - ((y - ncellsy*1/4)**2)/ncellsy**2*30) for y in range(ncellsy)] for x in range(ncellsx)]
+        self.heightmap = [[self.heightmap[x][y] + np.exp(-((x)**2 )/ncellsx**2*10 - ((y - ncellsy)**2)/ncellsy**2*10) for y in range(ncellsy)] for x in range(ncellsx)]
+        self.heightmap = [[self.heightmap[x][y] + np.exp(-((x - ncellsx)**2 )/ncellsx**2*10 - ((y)**2)/ncellsy**2*10) for y in range(ncellsy)] for x in range(ncellsx)]
 
+        ma = max(sum(self.heightmap,[]))
+        self.heightmap = [[self.heightmap[x][y]/ma for y in range(ncellsy)] for x in range(ncellsx)]
+        
+        # plt.imshow(self.heightmap)
+        # plt.show()
 
     def init_maze_environment(self, background_color = BLACK):
         '''
@@ -59,15 +78,6 @@ class Environment:
         pygame.display.set_caption('a maze')
         return pygame
     
-    def draw_full_grid(self, color = WHITE):
-        '''
-        Fills out the grid with walls
-        '''
-        for x in range(self.ncellsx+1):
-            pygame.draw.line(self.screen, color, [x*self.wx,0],[x*self.wx,self.height])
-        for y in range(self.ncellsy+1):
-            pygame.draw.line(self.screen, color, [0,y*self.wy],[self.width,y*self.wy], width = 30)
-
     def draw_grid_from_graph(self, color = WHITE):
         '''
         Fills out the grid with walls from the graph
@@ -76,7 +86,7 @@ class Environment:
             possible_walls = [(pos[0]+1, pos[1]),(pos[0]-1, pos[1]),(pos[0], pos[1]-1),(pos[0], pos[1]+1)]
             walls = []
             for i, q in enumerate(possible_walls):
-                if q not in self.graph[pos]:
+                if q not in [a[1] for a in self.graph[pos]]:
                     walls.append(i)
             for i in walls:
                 if i < 2:
@@ -86,31 +96,69 @@ class Environment:
             pygame.display.update()
 
     def build_maze(self):
-        self.visited.append(self.pos) # this keeps track of all positions we have visited
-        self.stack.append(self.pos)   # this keeps track of which next positions we should explore
-        self.stack.append(self.pos_end)   # this keeps track of which next positions we should explore
-        while self.stack:            
-            locs = np.random.permutation([(1,0),(-1,0),(0,1),(0,-1)]) # pick a random direction
-            flag = 1
-            for loc in [a for a in locs]: # we vist a new location
-                newpos = (loc[0]+self.pos[0],loc[1]+self.pos[1])
-                if newpos[0]>=0 and newpos[0]<self.ncellsx and newpos[1]>=0 and newpos[1]<self.ncellsy and newpos not in self.visited:
-                    self.graph.setdefault(self.pos,[]).append(newpos) # we append the positions we can visit from a given node
-                    self.graph.setdefault(newpos,[]).append(self.pos)
-                    flag = 0
-                    self.visited.append(newpos)
-                    self.stack.append(self.pos)
-                    self.pos = newpos # we move to the new location
-                    break
-            if flag and self.stack: # if we enter a dead end we select the last position visited from the stack
-                if self.pos_end not in self.visited:
-                    self.visited = sorted(self.visited, key = lambda x : (x[0] - self.pos_end[0])**2 +  (x[1] - self.pos_end[1])**2)
-                    self.pos = self.visited[0]
-                    self.visited = self.visited[1:]
-                else:
-                    p = np.random.randint(len(self.stack))
-                    self.pos = self.stack[p]
-                    self.stack = self.stack[:p] + self.stack[p+1:]
+        '''
+        build_maze will construct a graph representing the allowed  within a virtual maze environment. 
+        The graph is represented as a dictionary, a position wihtin a maze is a key and values represent each
+        possible move from that positiion i nthe format [weight, (posx, posy)] where weight is the cost of transition
+        or a weight of the vertex connecting the two nodes. 
+        '''        
+        if self.type == 0:
+            self.visited_set.add(self.pos) # this keeps track of all positions we have visited
+            d_to_fin = (self.pos[0] - self.pos_end[0])**2 +  (self.pos[1] - self.pos_end[1])**2
+            heapq.heappush(self.visited, [d_to_fin, self.pos])
+            self.stack.append(self.pos)  # this keeps track of which next positions we should explore
+            while self.stack:            
+                locs = np.random.permutation([(1,0),(-1,0),(0,1),(0,-1)]) # pick a random direction
+                flag = 1
+                for loc in [a for a in locs]: # we vist a new location
+                    newpos = (loc[0]+self.pos[0],loc[1]+self.pos[1])
+                    d_to_fin = (newpos[0] - self.pos_end[0])**2 +  (newpos[1] - self.pos_end[1])**2
+                    if newpos[0]>=0 and newpos[0]<self.ncellsx and newpos[1]>=0 and newpos[1]<self.ncellsy and newpos not in self.visited_set:
+                        self.graph.setdefault(self.pos,[]).append([1,newpos]) # we append the positions we can visit from a given node
+                        self.graph.setdefault(newpos,[]).append([1,self.pos])
+                        flag = 0
+                        heapq.heappush(self.visited,[d_to_fin,newpos])
+                        self.visited_set.add(newpos)
+                        self.stack.append(self.pos)
+                        self.pos = newpos # we move to the new location
+                        break
+                if flag and self.stack: # if we enter a dead end we select the last position visited from the stack
+                    if self.pos_end not in self.visited_set:
+                        self.pos = heapq.heappop(self.visited)[1]
+                        self.visited_set.remove(self.pos)
+                    else:
+                        p = np.random.randint(len(self.stack))
+                        self.pos = self.stack[p]
+                        self.stack = self.stack[:p] + self.stack[p+1:]
+
+        if self.type == 1:
+            self.visited # this keeps track of all positions we have visited
+            self.stack.append(self.pos)   # this keeps track of which next positions we should explore
+            while self.stack:            
+                locs = np.random.permutation([(1,0),(-1,0),(0,1),(0,-1)]) # pick a random direction
+                flag = 1
+                for loc in [a for a in locs]: # we vist a new location
+                    newpos = (loc[0]+self.pos[0],loc[1]+self.pos[1])
+                    if newpos[0]>=0 and newpos[0]<self.ncellsx and newpos[1]>=0 and newpos[1]<self.ncellsy and newpos not in self.visited:
+                        q = newpos
+                        p = self.pos
+                        cost = abs(self.heightmap[q[0]][q[1]]-self.heightmap[p[0]][p[1]]) if self.heightmap else 0
+                        self.graph.setdefault(self.pos,[]).append([self.heightmap[q[0]][q[1]], newpos]) # we append the positions we can visit from a given node
+                        self.graph.setdefault(newpos,[]).append([self.heightmap[p[0]][p[1]], self.pos])
+                        flag = 0
+                        self.visited.append(newpos)
+                        self.stack.append(self.pos)
+                        self.pos = newpos # we move to the new location
+                        #break
+                if flag and self.stack: # if we enter a dead end we select the last position visited from the stack
+                    if self.pos_end not in self.visited:
+                        ii = np.random.randint(len(self.visited))
+                        self.pos = self.visited[ii]
+                        self.visited = self.visited[:ii] + self.visited[ii+1:]
+                    else:
+                        p = np.random.randint(len(self.stack))
+                        self.pos = self.stack[p]
+                        self.stack = self.stack[:p] + self.stack[p+1:]
         return self.graph
     
     def run(self):
@@ -120,28 +168,16 @@ class Environment:
             self.clock.tick(self.FPS)
             for event in pygame.event.get():
                 flag = event.type != pygame.QUIT
+    
+    def fill_height_map(self):
+        for x in range(self.ncellsx):
+            for y in range(self.ncellsy):
+                pygame.draw.rect(self.screen, (self.heightmap[x][y]*255,0,0), (x*self.wx, y*self.wy, self.wx, self.wy))
+        pygame.display.update()
 
     def draw_pos(self, pos, color = WHITE):
         pygame.draw.circle(self.screen, color, ((pos[0]+.5)*self.wx, (pos[1]+.5)*self.wy), self.wx/3)
         pygame.display.update()
-
-    def draw_rect(self,color,direction,pos,dx,dy):
-        if direction == 'left' or direction == 3 :
-            pygame.draw.rect(self.screen,color, (pos[0]*self.wx-self.wx/2-dx/2+1,pos[1]*self.wy+1,dx + self.wx - 1, self.wy-1))
-        if direction == 'right' or direction == 1 :
-            pygame.draw.rect(self.screen,color, (pos[0]*dx+(self.wx-dx)/2+1,pos[1]*dy+1,dx + self.wx-1, self.wy-1))
-        if direction == 'up' or direction == 0:
-            pygame.draw.rect(self.screen,color, (pos[0]*dx+1,pos[1]*dy-self.wx/2-dy/2+1,self.wx-1, dx + self.wy-1))
-        if direction == 'down' or direction == 2:
-            pygame.draw.rect(self.screen,color, (pos[0]*dx+1,pos[1]*dy+1+(self.wy-dy)/2,self.wx - 1, dx + self.wy-1))
-        else:
-            pygame.draw.rect(self.screen,color, (pos[0]*self.wx+1+(self.wx-dx)/2,pos[1]*self.wy+(self.wy-dy)/2+1,dx-1, dy-1))
-        pygame.display.update()
-
-    def draw_rect_2(self,color,pos1,pos2):
-        loc = (pos2[0]-pos1[0], pos2[1]-pos1[1])
-        direction = int(loc==(1,0)) + 2*int(loc==(0,1)) + 3*int(loc == (-1,0))
-        self.draw_rect(color,direction,pos1,self.wx,self.wy)
 
     def save_graph(self, filename):
         with open(filename, 'wb') as file:
@@ -152,14 +188,22 @@ class Environment:
             self.graph = pickle.load(file)
 
 if __name__ == "__main__":
+
     while(1):
-        m = Environment(width = 500, height = 500, ncellsx = 70, ncellsy = 70, visualize_maze_building = True)
-        rb = RoboticsAlgorithms()
+        type = int(input('Provide the traversal type: 0 for Astar and 1 for Djkistra: '))
+        m = MazeBuilder(type = type, width = 500, height = 500, ncellsx = 50, ncellsy = 50, visualize_maze_building = True)
+        rb = SearchAlgs()
         m.init_maze_environment()
         m.build_maze()
-        m.draw_grid_from_graph()   
-        m.save_graph("amaze.pickle")    
-        path, shortest = rb.Astar(graph = m.graph, pos_start = m.pos_start, pos_end = m.pos_end)
+        m.save_graph("amaze.pickle")      
+        if type == 0:  
+            m.draw_grid_from_graph()   
+            path, shortest = rb.Astar(graph = m.graph, pos_start = m.pos_start, pos_end = m.pos_end)
+        else:
+            m.fill_height_map()
+            m.draw_grid_from_graph()
+            q = []
+            path, shortest = rb.Dijkstra(q, graph = m.graph, pos_start = m.pos_start, pos_end = m.pos_end, heightmap=m.heightmap)
         for p in path:
             m.draw_pos(p)
         for p in shortest:
