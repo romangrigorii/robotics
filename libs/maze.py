@@ -2,7 +2,7 @@
 # Python maze generator code #
 ##############################
 
-USE_SAVED_MAZE = True
+USE_SAVED_MAZE = False
 
 import pygame, numpy as np, pickle
 from path_algs import SearchAlgs
@@ -20,17 +20,16 @@ class MazeBuilder:
     RED = (255,0,0)
     BLACK = (0,0,0)
 
-    def __init__(self, maze_type = 0, width = 100, height = 100, ncellsx = 20, ncellsy = 20, visualize_maze_building = True):
+    def __init__(self, maze_type = 0, width = 100, height = 100, ncellsx = 20, ncellsy = 20):
         '''
         For all mazes the start and end node are positioned at (0,0) and (ncellsx-1,ncellsy-1), respectively 
         maze types:
-        0 - this is a maze in which the start and ned node are connedted by exctly ONE global path. 
-        1 - this is a maze in which hthe start node position can be reached via multiple paths, and the vertex weights are
-        derived from a height map, if it is nonempty. The default height map is represented by a series of 'hills'
+        0 - this is a maze in which hthe start node position can be reached via multiple paths and each traversal has a cost.
+        1 - this is a maze in which the start and end node are connedted by exctly ONE global path. 
         '''
-        # set whther or not we want to visualize the maze building in real time
+        # set whether or not we want to visualize the maze building in real time
+
         self.maze_type = maze_type
-        self.visualize_maze_building = visualize_maze_building 
         self.FPS = 1
         if width < ncellsx*3: width = ncellsx*3 # make sure each path is at least 1 pixel wide
         if height < ncellsy*3: height = ncellsy*3
@@ -209,9 +208,10 @@ if __name__ == "__main__":
         if type not in [0,1,2,3]:
             print('Invalid option.')
             break
+        
         maze_type = type//3
         alg_type = type if type < 2 else 2 # 0, 1, 2
-        m = MazeBuilder(maze_type=maze_type, width = 1000, height = 500, ncellsx = 50, ncellsy = 25, visualize_maze_building = True)
+        m = MazeBuilder(maze_type=maze_type, width = 1000, height = 500, ncellsx = 50, ncellsy = 25)
         rb = SearchAlgs()
         m.init_maze_environment()
 

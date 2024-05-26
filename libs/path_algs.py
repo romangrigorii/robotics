@@ -4,6 +4,9 @@ import time
 class SearchAlgs:        
     @staticmethod
     def extract_optimal_path(pos_start, pos_end, path_cost, graph):
+        '''
+        Given the graph and the cost traversal to each of the visited nodes computed the optimal path
+        '''
         path = []
         path_set = set([pos_end])
         path.append(pos_end)
@@ -21,6 +24,7 @@ class SearchAlgs:
         @input : 
         graph is the dictionary of positions (tuples) and a list of corresponding nodes that can be visited from them.
         The format connected nodes is in the [weight, (xcoord, ycoord)] format, where weight is the vertes weight. 
+        pos_start, pos_end, visited_all (used for Stack Version)
         '''
         possible_paths = {pos_start: 0}
         visited = set()
@@ -46,6 +50,9 @@ class SearchAlgs:
         @input : 
         graph is the dictionary of positions (tuples) and a list of corresponding nodes that can be visited from them.
         The format connected nodes is in the [weight, (xcoord, ycoord)] format, where weight is the vertes weight. 
+        graph_traversed holdds the graph that is traversed thus far
+        pos_stack is the stack of nodes
+        visited are nodes already visited
         '''
         if not pos_stack: pos_stack = [(pos_start, 0)]
         pos_cur = (pos_start, 0)
@@ -96,6 +103,9 @@ class SearchAlgs:
     
     @staticmethod
     def extract_optimal_path_recursive(pos_start, pos_end, path, graph):
+        '''
+        This is a method for finding the most direct path through the traversed nodes. 
+        '''
         visited = set(pos_start)
         path_so_far = [pos_start]
         def helper(path_so_far):
@@ -107,27 +117,6 @@ class SearchAlgs:
                 for p in posibilities:
                     visited.add(p)
                     path_so_far.append(p)
-                    a = helper(path_so_far)
-                    if a == 0: path_so_far.pop()
-                    else: return 1 # terminate early
-                return 0
-        helper(path_so_far)
-        return path_so_far
-    
-
-    @staticmethod
-    def extract_optimal_path_(pos_start, pos_end, path_cost, graph):
-        visited = set(pos_end)
-        path_so_far = [pos_end]
-        def helper(path_so_far):
-            if path_so_far[-1] == pos_start: return 1
-            posibilities = graph[path_so_far[-1]]
-            posibilities.sort(key=lambda x: path_cost.get(x[0], float('inf')) + x[1] if x[0] not in visited else float('inf'))
-            if not posibilities: return 0
-            else:
-                for p in posibilities:
-                    visited.add(p[0])
-                    path_so_far.append(p[0])
                     a = helper(path_so_far)
                     if a == 0: path_so_far.pop()
                     else: return 1 # terminate early

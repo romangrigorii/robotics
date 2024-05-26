@@ -1,3 +1,8 @@
+###
+# This file holds the two solutions asked for the in the problem statement.
+# The goal is to make it clear how k>0 is dealth with.
+# This a file that can be expanded upon to compute the times of traversal and other metrics. 
+
 from path_algs import Dijkstra, StackBasedApproach
 
 class Solutions():

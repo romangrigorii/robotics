@@ -9,6 +9,7 @@ class Test(unittest.TestCase, SearchAlgs):
     '''
     graph1 = {(0,0): set([((1,0), 1), ((0,1), 2)]), (1,0) : set([((0,0), 1), ((1,1), 3)]), (0,1): set([((0,0), 2), ((1,1), 1)]), (1,1): set([((0,1), 1), ((1,0), 3), ((2,1),1)]), (2,1): set([((1,1), 1)])}
     # deptiction of graph1
+    #
     #  0,0 ---(1)--- 1,0
     #   |             |
     #   |             |
@@ -16,8 +17,9 @@ class Test(unittest.TestCase, SearchAlgs):
     #   |             |
     #   |             |
     #  0,1 ---(1)--- 1,1 ---(1)--- (2,1)
-
-    #  The optimal path should be 0,0 -> 0,1 -> 1,1
+    #
+    #  The optimal path should be 0,0 -> 0,1 -> 1,1 -> (2,1)
+    #
     graph2 = {(0,0): set([((1,0), 1)]), (1,0): set([((0,0), 1)]), (0,1):set([((1,1), 1)]), (1,1) : set([((0,1), 1)])}
     # deptiction of graph2
     #  0,0 ---(1)--- 1,0
