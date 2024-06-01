@@ -1,0 +1,91 @@
+https://docs.google.com/document/d/1AogYPqT0UPtIfng5b7Os6M1Yy4uScKU9aNRuNIHCOjg/edit
+
+Problem statement:
+
+Assume you have a weighted graph with approximately 100 nodes, with a fixed start node and end node. The exact edge weights are not known until an edge has been traversed, a priori it is only known that the weight falls within some given range of positive real values (uniform distribution) which is different for each edge. 1) Write a program that minimizes the total cost of traversing the graph k times, where k is a provided parameter. Use any language you like, don’t worry about computation time. 2) Along with your code, please provide a brief write-up covering the following. Note that your write-up can be short (1 or 2 pages); you will have time to elaborate when we meet to discuss. For each of the below items we are interested in understanding not only what you chose, but what you considered and why. • Overview of how your algorithm works. • How does your approach handle exploration vs. exploitation? • How does it handle uncertainty? • How is your solution designed to handle different values of k?
+
+
+Solution 1) 
+
+The fundamental algorithm here is based on a well established, Dijkstra’s algorithm. It operates by collecting a series of nodes which can be visited from the current node and visiting the least expensive node to visit either from current or previously visited nodes.The cost of visiting any node is found by adding the minimal cost of traveling to currently occupied node to the cost (vertex weight) of traveling to any one of its neighbors. Once we visit a neighbor node with the lowest total cost, this cost now represents the absolute minimal cost to traversing to this node since we have navigated to it via the least expensive path (assuming that all weights > 0). Once we reach the target node in this fashion, or do not have any more neighbors to visit the algorithm terminates. If the algorithm has navigated to the final node, under the logic above, the cost of visiting that node computed at that point will be the minimal cost of visiting it and this will represent a globally optimal solution. 
+
+Here’s the rough pseudo code of this operation:
+
+From the current node, compute the cost of traveling to neighboring nodes by summing the cost of traversing to the current node and the vertex weight of the neighbors. Neighboring node locations are added to the heap in the order of their overall cost of traversal. 
+Travel to the least costly node on the heap and add it to the ‘visited’ set, which bars us from ever visiting it again. Remove it from the heap. 
+Repeat 1-2 until the final node is reached or the heap is empty.
+
+When the target is reached, the optimal path is computed by starting at the final node and finding the neighboring nodes with the lowest total cost of travel while also accounting for the travel expenditures to get from the neighbor nodes to the current node. We traverse all of the visited nodes with this logic until we arrive at the starting node. 
+
+The algorithm above will, in essence, search for the target node via BFS manner. All the paths with lowest overall cost will be searched until the target is reached rather than those with lowest vertex weights. Because we prioritize paths with the lowest cost once we reach the target we immediately have access to the optimal (least expensive) path. 
+
+The solution we arrive at is guaranteed to be optimal even if we take some suboptimal exploratory paths before arriving at the final node. For the problem at hand, this means that no matter how many more times beyond the first we attempt to traverse the graph, we should always take the one of minimal cost found on the first traversal. Given k traversals, the first traversal will be most expensive as most of the search time will be spent on investigating potential paths by prioritizing those with lowest cost. Every traversal after the first can use the optimal path found in the first traversal.
+
+For large k, this approach will be very efficient as the average traversal cost will asymptotically approach the minimal cost of traversal as function of k. The exact k cutoff at which this becomes the optimal algorithm on average will be determined by the graph type. Dijkstra’s algorithm is an exploration focused approach that finds the optimal solution after the first traversal. If we are concerned with k traversals where k is arbitrarily small we need to design an algorithm that prioritizes exploitation since we may not need to take advantage of knowing the optimal path when traversin the graph only a handful of times. I design a DFS based approach in Solution 2.
+
+Solution 2:
+
+In traversal, rather than pursuing the lowest cost solution until we reach the final node, we can pursue the concurrent least expensive option until we reach the final node OR we cannot make any more moves. Each of the unvisited nodes are to be added to the stack in the order of decreasing cost of visiting the elements in which can be popped off when a dead-end is reached. Once the final node is reached we compute the optimal path with Dijkstra’s algorithm limiting it to search for the optimal path with the nodes we have already traversed. Note that we do not use Dijkstra’s algorithm for traversal of new nodes - only for finding the optimal path from nodes of now known parts of the graph. 
+
+On traversals beyond the first we visit nodes on stack and reapply Dijkstra’s algorithm as the information about the graph is updated. For large enough k we arrive at the same solution as Solution 1. The advantage of this approach versus Dijkstra's algorithm is that we don’t front load the exploration of the environment which would make it impractical for low k. For sufficiently large k we arrive at the same solution as Solution 1.
+
+How many nodes should we visit on the stack before reapplying Dijkstra’s algorithm? In my solution I pop off ½ length of the stack that I started with but I think this cutoff should be based on the nature of the graph. 
+
+
+As part of the overall solution I’ve done 4 things:
+
+Developed a Djikstra algorithm described in Solution 1. I followed the pseudo algorithm from the wiki. The algorithm and its helper function is located in path_algs.py named Dijkstra
+Developed a stack based on Dijkstra's algorithm described in Solution 2. The algorithm and its helper function is located in path_algs.py named StackBasedApproach
+I wanted to get a better idea of how Dijkstra’s algorithm performs relative to heuristic based approaches which rely on using some knowledge about the location of the target node. I developed an Astar algorithm to that end, which relies on manhattan or euclidean distance heuristics. The solution was also placed in  path_algs.py and named Astar
+To test the algorithms… I built maze environments to represent my graph, to which I applied the algorithms to, to get a visual confirmation of the algorithm functionality. Run maze.py to visualize algorithm operations on two types of mazes:
+A maze with multiple potential paths from start node to end node but with variable costs of taking each path. The cost is visually represented by black to red gradient, where black represents the cost of 0 and red represents the cost of 1. 
+A maze with a single path from start node to end node with no cost of traversals. 
+
+	The start node is always in the top left corner, and the end node is always in the bottom right. 
+
+	When running maze.py you will be asked to specify the algorithm you would like to use.
+
+	0: will run Dijkstra on maze (a)
+1: will run stack based Dijkstra’s algorithm with k = 5 on maze (a), Two seconds will be taken between rendering of traversals to aid visualization.  
+2: will run Astar algorithm on maze (a)
+3: will run Astar algorithm on maze (b)
+
+
+Set USE_SAVED_MAZE to True inside maze.py, in order to use the last generated maze graph. Set it to False to generate a new maze everytime you run maze.py. 
+
+ Run gtests.py to run gtests that test the algorithms in a unit test manner. 
+
+Results 
+
+Here’s one of the results you’d expect to see by running version (1) which is Dikistra’s algorithm applied to a maze with multiple solutions and a cost associated with each path. In white are all the visited nodes, and in blue is the optimal (lowest cost) path found so far. Black - red gradient represents cost values from 0 to 1 associated with travers in to given node. 
+
+
+
+
+Most of the nodes are visited during the traversal and optimal path is found. For k > 1 this is the path we will traverse every time. 
+
+On the same maze as above, I ran the stack version of Djikstra’s algorithm:
+
+First traversal
+
+
+Second traversal
+
+
+With every k we traverse more nodes and are able to find the optimal solution with the currently traversed graph. Note that we arrive at the same solution as Dijkstra’s solution given large enough k. In this, and other cases, this appeared to happen on the second traversal. 
+
+EXTRA: 
+
+Here are some solutions from running Astar algorithm on two types of mazes:
+
+Maze type a (multiple paths to the finish)
+
+
+Astar will avoid high cost regions to some extent, but because of the strong influence of the heuristic, will not guarantee an optimal path. For k = 1 this will likely yield least costly solution, as the minimal number of new nodes is traversed. 
+
+Maze type b (single path) 
+
+
+
+A star can also efficiently operate on graphs with absent weights and on problems with exactly one solution. This is an example of it traversing a maze with minimal time spent exploring irrelevant nodes. 
+
