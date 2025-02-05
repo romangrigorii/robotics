@@ -1,7 +1,13 @@
+import sys
+import os
+sys.path.append(os.getcwd() + '/..')
+sys.path.append(os.getcwd() + '/../..')
+
 import unittest
 from typing import Optional, List
 from path_algs import *
-from maze import *
+from spaces.maze import *
+
 
 class Test(unittest.TestCase, SearchAlgs):
     '''
@@ -44,5 +50,6 @@ class Test(unittest.TestCase, SearchAlgs):
             if i == 1:
                 self.assertEqual(optimal_path, [(2,1), (1,1), (0,1), (0,0)]) # optimal solution is found on second traversal
         self.assertEqual(SearchAlgs.StackBasedApproach(self.graph2, (0,0),(1,1))[1], -1)
+
 if __name__ == "__main__":
     unittest.main()

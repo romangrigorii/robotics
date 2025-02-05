@@ -89,6 +89,7 @@ class SearchAlgs:
         visited = set()
         pos_cur = [0, 0, pos_start] # heuristic + g, g, node locations
         visited.add(pos_start)
+        visited_list = [pos_start]
         while pos_end != pos_cur[1]:
             pos_st = pos_cur
             for q in graph.get(pos_cur[1], []):
@@ -96,10 +97,12 @@ class SearchAlgs:
                     possible_paths[q[0]] =  q[1] + Astar_heuristic(q[0], pos_end)
             pos_cur = min(possible_paths.items(), key = lambda x: x[1] if x[0] not in visited else float('inf')) # take the min cost route
             pos_cur = [pos_cur[1], pos_cur[0]]
-            visited.add(pos_cur[1])
+            if pos_cur[1] not in visited:
+                visited.add(pos_cur[1])
+                visited_list.append(pos_cur[1])
             if pos_cur[1] == pos_st[1]: return -1, -1 # no path possible
         v = SearchAlgs.extract_optimal_path_recursive(pos_start, pos_end, possible_paths, graph)        
-        return visited, v
+        return visited_list, v
     
     @staticmethod
     def extract_optimal_path_recursive(pos_start, pos_end, path, graph):

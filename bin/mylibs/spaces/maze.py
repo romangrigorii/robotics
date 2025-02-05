@@ -74,7 +74,9 @@ class MazeBuilder:
         self.screen = pygame.display.set_mode(self.size)
         self.screen.fill(background_color)
         pygame.display.set_caption('a maze')
-        return pygame
+        window = pygame.display.set_mode(self.size)
+        return window
+    
     
     def draw_grid_from_graph(self, color = WHITE, width = 1):
         '''
@@ -180,6 +182,18 @@ class MazeBuilder:
 
     def draw_pos(self, pos, color = WHITE, scale=.5):
         pygame.draw.circle(self.screen, color, ((pos[0]+.5)*self.wx, (pos[1]+.5)*self.wy), self.wx*scale/2)
+        pygame.display.update()
+
+    def draw_all_pos(self, path, color = WHITE, scale = .5, linked = True, st_end = (0,0)):
+        for pos in path:
+            pygame.draw.circle(self.screen, color, ((pos[0]+.5)*self.wx, (pos[1]+.5)*self.wy), self.wx*scale/2)
+        if linked:
+            for ii in range(len(path)-1):
+                start_pos=((path[ii][0]+.5)*self.wx, (path[ii][1]+.5)*self.wy)
+                end_pos=((path[ii+1][0]+.5)*self.wx, (path[ii+1][1]+.5)*self.wy)
+                print(start_pos)
+                print(end_pos)
+                pygame.draw.line(surface=self.screen, color=color, start_pos=start_pos, end_pos=end_pos, width = int(np.ceil(self.wx*scale/2)))
         pygame.display.update()
 
     def save_graph(self, filename):
